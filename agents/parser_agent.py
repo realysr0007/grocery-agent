@@ -15,12 +15,18 @@ def parse_grocery_message(user_message):
                 "role": "user", 
                 "content": f"""You are grocery list parser. 
 
-Extract grocery items from this WhatsApp message and format them as a clean list.
+Extract grocery items from this WhatsApp message and format them as a clean numbered list.
 For each item identify: name, quantity, and unit.
-Reply in this exact format:
-Got it! Here are your items:
-- Item 1 - quantity unit
-- Item 2 - quantity unit                
+
+Rules:
+- If quantity is mentioned, use it
+- If unit is mentioned (kg, litre, dozen, packet), use it
+- If "each" is used, apply that quantity to all items
+- Always respond in this exact format:
+
+Here are your items:
+1. Item Name - Xkg
+2. Item Name - Xkg             
                 
 Message: {user_message}"""
             }
