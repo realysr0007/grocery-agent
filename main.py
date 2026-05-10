@@ -4,6 +4,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
 from agents.parser_agent import parse_grocery_message
 from agents.price_checker import check_prices
+from agents.payment_agent import create_payment_link
 import os
 
 load_dotenv()
@@ -28,13 +29,12 @@ async def whatsapp_reply(request: Request):
     if phone_number in user_sessions and user_sessions[phone_number]["state"] == "waiting_for_confirmation":
         if incoming_message.upper() == "YES":
             session = user_sessions[phone_number]
-            reply = f"""✅ Order Confirmed!
-
-            Platform: {session['platform']}
-            Total: ₹{session['total']}
-
-            Your order has been placed successfully!
-            Delivery in 10-15 mins! 🛒"""
+            payment_link = create_payment_link(
+                session['total'],
+                session['platform'],
+                session['parsed_response']
+            )
+            reply = f"✅ Order Confirmed!\n\nPlatform: {session['platform']}\nTotal: ₹{session['total']}\n\n💳 Complete your payment:\n{payment_link}\n\nOrder will be placed after payment! 🛒"
             del user_sessions[phone_number]
         elif incoming_message.upper() == "NO":
             reply = "❌ Order cancelled. Send me a new grocery list anytime!"
@@ -49,7 +49,6 @@ async def whatsapp_reply(request: Request):
         for line in price_comparison.split("\n"):
             if platform + ":" in line:
                 total = line.split("₹")[-1].strip()
-
         user_sessions[phone_number] = {
             "state": "waiting_for_confirmation",
             "parsed_response": parsed_response,
