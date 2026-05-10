@@ -27,7 +27,14 @@ async def whatsapp_reply(request: Request):
 
     if phone_number in user_sessions and user_sessions[phone_number]["state"] == "waiting_for_confirmation":
         if incoming_message.upper() == "YES":
-            reply = "✅ Order Confirmed! Your order has been placed. Delivery in 10-15 mins! 🛒"
+            session = user_sessions[phone_number]
+            reply = f"""✅ Order Confirmed!
+
+            Platform: {session['platform']}
+            Total: ₹{session['total']}
+
+            Your order has been placed successfully!
+            Delivery in 10-15 mins! 🛒"""
             del user_sessions[phone_number]
         elif incoming_message.upper() == "NO":
             reply = "❌ Order cancelled. Send me a new grocery list anytime!"
@@ -37,9 +44,17 @@ async def whatsapp_reply(request: Request):
     else:
         parsed_response = parse_grocery_message(incoming_message)
         price_comparison = check_prices(parsed_response)
+        platform = "Instamart" if "Instamart saves" in price_comparison else "Blinkit"
+        total = ""
+        for line in price_comparison.split("\n"):
+            if platform + ":" in line:
+                total = line.split("₹")[-1].strip()
+
         user_sessions[phone_number] = {
             "state": "waiting_for_confirmation",
             "parsed_response": parsed_response,
+            "platform": platform,
+            "total": total
         }
         print(f"Session saved for {phone_number}: {user_sessions[phone_number]}")
         reply = price_comparison
