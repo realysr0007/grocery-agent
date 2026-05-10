@@ -12,6 +12,7 @@ client = razorpay.Client(
 )
 
 def create_payment_link(amount, platform, description):
+    # raise Exception("Simulated payment failure!")  # ← add this line temporarily
     payment_link = client.payment_link.create({
         "amount": int(float(amount)) * 100,  # Amount in paise
         "currency": "INR",
