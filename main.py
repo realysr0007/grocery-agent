@@ -1,17 +1,24 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
+from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 from dotenv import load_dotenv
-from agents.parser_agent import parse_grocery_message
-from agents.price_checker import check_prices
+from agents.grocery_agent import process_grocery_message
 from agents.payment_agent import create_payment_link
 import os
+import time
 
 load_dotenv()
 
 app = FastAPI()
 
 user_sessions = {}
+
+twilio_client = Client(
+    os.getenv("TWILIO_ACCOUNT_SID"),
+    os.getenv("TWILIO_AUTH_TOKEN")
+)
+TWILIO_NUMBER = "whatsapp:+14155238886"
 
 @app.get("/")
 async def root():
@@ -44,7 +51,7 @@ async def whatsapp_reply(request: Request):
                 payment_link = create_payment_link(
                     session['total'],
                     session['platform'],
-                    session['parsed_response']
+                    f"Grocery order via {session['platform']}"
                 )
                 reply = f"✅ Order Confirmed!\n\nPlatform: {session['platform']}\nTotal: ₹{session['total']}\n\n💳 Complete your payment:\n{payment_link}\n\nOrder will be placed after payment! 🛒"
             except Exception as e:
@@ -57,9 +64,10 @@ async def whatsapp_reply(request: Request):
         else:
             reply = "Please reply YES to confirm or NO to cancel."
     else:
-        parsed_response = parse_grocery_message(incoming_message)
-        print(f"Parsed: {parsed_response}")
-        price_comparison = check_prices(parsed_response)
+        start = time.time()
+        price_comparison = process_grocery_message(incoming_message)
+        elapsed = time.time() - start
+        print(f"process_grocery_message took: {elapsed:.2f}s")
         print(f"Price comparison: {price_comparison}")
         platform = "Instamart" if "Instamart saves" in price_comparison else "Blinkit"
         total = ""
@@ -74,12 +82,15 @@ async def whatsapp_reply(request: Request):
         else:
             user_sessions[phone_number] = {
                 "state": "waiting_for_confirmation",
-                "parsed_response": parsed_response,
                 "platform": platform,
                 "total": total
             }
             print(f"Session saved for {phone_number}: {user_sessions[phone_number]}")
             reply = price_comparison
 
-    response.message(reply)
-    return Response(content=str(response), media_type="application/xml")
+    twilio_client.messages.create(
+        from_=TWILIO_NUMBER,
+        to=phone_number,
+        body=reply
+    )
+    return Response(content="", media_type="application/xml")
